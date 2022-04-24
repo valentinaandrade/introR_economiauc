@@ -1,0 +1,172 @@
+---
+title: "Sesión 3. Reporte de resultados"
+subtitle: "Informe de resultados"
+author: "Nombre"
+date: "20-04-2022"
+output:
+  pdf_document:
+    toc: yes
+---
+ 
+
+\newpage 
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+# El primer paso: la carga
+
+El primero paso SIEMPRE será cargar los paquetes, sin embargo, este paso no es necesario mostrarlo en el reporte, para ello es que configuraremos el ´chunk´para que no se muestre en el reporte "renderizado", para esto usaremos el argumento ´include=FALSE´
+
+```{r include=FALSE}
+pacman::p_load(tidyverse,
+               sjPlot,  
+               broom,
+               kableExtra)
+
+```
+ 
+Haremos lo mismo con la carga de datos
+
+```{r include=FALSE}
+datos <- readRDS(file = "../input/data/datos_proc.rds") 
+```
+
+
+# Exploración de variables
+
+Para explorar las variables a trabajar en el informe, usaremos el paquete ´sjPlot´ para realizar un gráfico de dispersión, usando la función ´plot_scatter´, podemos incorporar título y cambiar colores, para esto usamos los argumentos de la función.
+
+```{r }
+plot_scatter(datos, ytoth, d_toth,
+             title = "1. Gráfico de dispersión entre ingresos totales y gastos totales")
+```
+
+Como podemos ver, no existe un buena visualización de los datos, lo bueno de trabajar con ´sjPlot´, es que es compatible con el universo ´tidyverse´, por lo que podemos usar el operador pipeline. Entonces filtremos los casos y veamos como queda.
+
+\newpage 
+
+## Gráficos de dispersión
+
+```{r echo=TRUE}
+datos %>% filter(ytoth <= 5000000) %>% 
+  plot_scatter(., ytoth, d_toth,
+             title = "2. Gráfico de dispersión entre ingresos totales y gastos totales, con casos filtrados")
+```
+
+ya se visualiza mejor, hay muchas configuraciones que puedes explorar, así mismo con el argumento ´fit.grps = "lm"´ puedes incorporar una recta según el método que prefieras, inclusive puedes añadir una categoría de diferenciación, veamos como queda con la variable género
+
+\newpage 
+
+```{r message=FALSE, warning=FALSE, echo = FALSE}
+datos %>% filter(ytoth <= 5000000,
+                 d_toth <= 3000000) %>% 
+  plot_scatter(., ytoth, d_toth, genero_ent,
+               fit.grps = "lm",
+               title = "3. Gráfico de dispersión entre ingresos totales y gastos totales, con casos filtrados y recta de regresión")
+```
+Nuevamente no hay buena visualización ¡pero nada que no se pueda arreglar!. Para ello usaremos el argumento ´grid´, este nos separará el gráfico de dispersión para hombres y mujeres. 
+
+\newpage 
+
+```{r message=FALSE, warning=FALSE}
+datos %>% filter(ytoth <= 3000000,
+                 d_toth <= 3000000) %>% 
+  plot_scatter(., ytoth, d_toth, genero_ent,
+               fit.grps = "lm", grid = TRUE,
+               title = "4. Gráfico de dispersión entre ingresos totales y gastos totales, según género")
+
+```
+Ahora sólo te queda seguir investigando entre los argumentos de la función ¿qué otras cosas crees que son posibles de graficar?
+
+\newpage 
+
+## Gráfico de barras
+
+Efectivamente, con ´sjPlot´ puedes crear más gráficos todavía. En esta ocasión usaremos la función ´plot_grpfrq´, donde puedes generar barras hasta gráficos de caja, sólo debes explorar en los argumentos. 
+
+Ahora generaremos un gráfico de barras para las variables ocupación y género.
+
+```{r message=FALSE, warning=FALSE}
+plot_grpfrq(datos$ocup_ent, datos$genero_ent,
+            title = "Gráfico 5. Gráfico de barras según ocupación y género",
+            type = "bar", show.n = FALSE)
+```
+
+\newpage
+
+# Regresión
+
+Para generar una regresión utilizaremos la función ´lm´del paquete base, para crear un objeto con el nombre modelo0, este almacenará nuestro modelo.
+
+Pero, ¿cómo lo visualizamos en el reporte? muy fácil, utilizaremos dos paquetes, uno llamado ´broom´ y otro ´kableExtra´, con el primero generaremos un reporte de los datos de la regresión, mientras que con el segundo incorporaremos un formato específico para la tabla a reportar
+
+```{r}
+modelo0 <- lm(ytoth ~ 1,
+              data = datos, 
+              weights = factor)
+
+```
+
+\newpage
+
+```{r}
+broom::tidy(modelo0) %>% 
+  kable(caption = "Tabla 1. Modelo sin predictores") %>%
+  kable_styling(latex_options = c("striped")) %>% 
+  footnote(general = "Elaboración propia")
+```
+
+\newpage
+
+```{r}
+modelo1 <- lm(ytoth ~ edad_ent + genero_ent + numh + d_toth + t_dtoth,
+              data = datos, 
+              weights = factor)
+
+```
+
+```{r}
+broom::tidy(modelo1) %>% 
+  kable(caption = "Tabla 2. Modelo con predictores") %>%
+  kable_styling(latex_options = c("striped")) %>% 
+  footnote(general = "Elaboración propia")
+```
+
+Para más información sobre kableExtra, [ver aquí](https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html)
+
+\newpage
+
+## Información de modelos 
+
+En esta ocasión sólo extraeremos los elementos de los objetos creados, para ello usaremos el símbolo $.
+
+```{r}
+modelo1$coefficients %>%  
+  kable(caption = "Tabla 3. Coeficientes de los predictores") %>%
+  kable_styling(latex_options = c("striped")) %>% 
+  footnote(general = "Elaboración propia")
+
+```
+
+\newpage
+
+## Gráficar los modelos
+
+Nuevamente para la visualización utilizaremos ´sjPlot´, con la función ´plot_model´ graficaremos el modelo creado.
+
+```{r echo=FALSE}
+sjPlot::plot_model(modelo1, type = "pred",
+                   show.p = T,
+                   show.values =  T,
+                   ci.lvl = c(0.95), 
+                   title = "Estimación de predictores", 
+                   vline.color = "purple")
+```
+
